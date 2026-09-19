@@ -4,6 +4,8 @@
   "description": "Playwright UI automation for Restful-Booker",
   "scripts": {
     "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
     "test:headed": "playwright test --headed",
     "test:report": "playwright show-report"
   },

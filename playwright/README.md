@@ -1,49 +1,46 @@
-# Playwright UI Tests — Restful-Booker
+# UI Tests — Playwright
 
-End-to-end UI automation for [automationintesting.online](https://automationintesting.online) — the Booker front-end for Restful-Booker.
+The maintained UI regression suite targets [automationintesting.online](https://automationintesting.online).
 
-## Setup
-
-```bash
-npm install
-npx playwright install --with-deps
-```
-
-## Running Tests
+## Run
 
 ```bash
-# All tests, headless
-npx playwright test
-
-# Specific spec file
-npx playwright test tests/booking.spec.js
-
-# With browser visible
-npx playwright test --headed
-
-# Specific browser
-npx playwright test --project=chromium
-
-# View HTML report after run
-npx playwright show-report
+npm ci
+npx playwright install chromium firefox
+npm test
 ```
 
-## Structure
+Focused commands:
 
+```bash
+npm run test:chromium
+npm run test:firefox
+npm run test:headed
+npm run test:report
 ```
+
+The default base URL can be overridden with `BASE_URL`. On Windows, set `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge` to use an installed Edge channel when a downloaded Chromium package is unavailable.
+
+## Maintained suite
+
+```text
 playwright/
-├── tests/
-│   ├── booking.spec.js     # Booking flow tests (happy path + validation)
-│   └── contact.spec.js     # Contact form tests
 ├── pages/
-│   ├── HomePage.js         # Page Object: landing / room listing
-│   └── BookingPage.js      # Page Object: booking form
-├── utils/
-│   └── testData.js         # Shared test data helpers
-├── playwright.config.js
-└── package.json
+│   ├── BookingPage.js
+│   ├── ContactPage.js
+│   └── HomePage.js
+├── tests/
+│   ├── booking.spec.js
+│   └── contact.spec.js
+├── utils/testData.js
+└── playwright.config.js
 ```
 
-## Page Object Model
+- Booking tests read the public availability report, enter a free date window through the home-page form, and select the `Double` room by its visible heading rather than card position.
+- Contact validation uses a small data table for cases that share the same workflow.
+- Tests run serially with one worker because the target is a shared public demo.
+- Chromium and Firefox projects are configured. The live booking submission is skipped in Firefox because the shared service has returned a browser-level load-error page after that submission; other scenarios remain cross-browser.
 
-All page interactions are encapsulated in Page Objects under `/pages`. Tests import these classes rather than querying selectors directly, keeping specs readable and selectors maintainable in one place.
+## Failure evidence
+
+Screenshots and traces are retained for failures under `test-results/`; the HTML report is written to `playwright-report/`. CI uploads both paths.

@@ -1,35 +1,34 @@
 const { test, expect } = require('@playwright/test');
+const { ContactPage } = require('../pages/ContactPage');
+const { invalidContactCases, validContact } = require('../utils/testData');
 
 test.describe('Contact Form', () => {
 
   test('should submit contact form successfully', async ({ page }) => {
-    await page.goto('/');
+    const contact = new ContactPage(page);
 
-    // Scroll to contact form
-    await page.getByTestId('ContactName').scrollIntoViewIfNeeded();
+    await contact.navigate();
+    await contact.fill(validContact);
+    await contact.submit();
 
-    // Fill all fields using data-testid attributes
-    await page.getByTestId('ContactName').fill('Jane Tester');
-    await page.getByTestId('ContactEmail').fill('jane.tester@example.com');
-    await page.getByTestId('ContactPhone').fill('55512345678');
-    await page.getByTestId('ContactSubject').fill('Test Inquiry');
-    await page.getByTestId('ContactDescription').fill('This is an automated test message for the contact form.');
-    await page.getByRole('button', { name: 'Submit' }).click();
-
-    // Assert success message appears
-    await expect(page.getByText('Thanks for getting in touch')).toBeVisible({ timeout: 10000 });
+    await expect(contact.successMessage).toBeVisible();
   });
 
-  test('should show validation errors for empty contact form', async ({ page }) => {
-    await page.goto('/');
+  for (const testCase of invalidContactCases) {
+    test(`should reject ${testCase.name}`, async ({ page }) => {
+      const contact = new ContactPage(page);
 
-    await page.getByTestId('ContactName').scrollIntoViewIfNeeded();
+      await contact.navigate();
+      await contact.fill(testCase.data);
+      await contact.submit();
 
-    // Submit without filling anything in
-    await page.getByRole('button', { name: 'Submit' }).click();
+      await expect(contact.errorAlert).toBeVisible();
+      for (const message of testCase.expectedErrors) {
+        await expect(contact.errorAlert).toContainText(message);
+      }
 
-    // Success message should NOT appear
-    await expect(page.getByText('Thanks for getting in touch')).not.toBeVisible({ timeout: 3000 });
-  });
+      await expect(contact.successMessage).not.toBeVisible();
+    });
+  }
 
 });

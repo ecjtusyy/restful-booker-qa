@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { BookingPage } = require('../pages/BookingPage');
-const { validGuest } = require('../utils/testData');
+const { HomePage } = require('../pages/HomePage');
+const { findAvailableBookingWindow, validGuest } = require('../utils/testData');
 
 // Run serially — the demo site cannot handle parallel booking requests
 test.describe.configure({ mode: 'serial' });
@@ -8,30 +9,41 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Booking Flow', () => {
 
   test('should display the booking calendar for a room', async ({ page }) => {
-    await page.goto('/');
-    // Click into the Double room (index 2 = third "Book now" link)
-    await page.getByRole('link', { name: 'Book now' }).nth(2).click();
-    // Calendar should now be visible
-    await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 10000 });
+    const home = new HomePage(page);
+    const booking = new BookingPage(page);
+
+    await home.navigate();
+    await home.bookRoomByType('Double');
+
+    await expect(booking.calendar).toBeVisible();
   });
 
-  test('should complete a booking - happy path', async ({ page, browserName }) => {
+  test('should complete a booking - happy path', async ({ page, request, browserName }) => {
     test.skip(
       browserName === 'firefox',
       'Shared demo site returns a browser load-error page after Firefox booking submission.'
     );
 
-    await page.goto('/');
+    const home = new HomePage(page);
     const booking = new BookingPage(page);
 
-    // Navigate into the Double room
-    await page.getByRole('link', { name: 'Book now' }).nth(2).click();
+    const bookingWindow = await findAvailableBookingWindow(request);
+    test.info().annotations.push({
+      type: 'booking-window',
+      description: `${bookingWindow.start} to ${bookingWindow.end}`,
+    });
 
-    // Wait for calendar to load
-    await expect(booking.calendar).toBeVisible({ timeout: 10000 });
-
-    // Select dates
-    await booking.selectCalendarDates();
+    await home.navigate();
+    await home.searchAvailability(bookingWindow.startDate, bookingWindow.endDate);
+    await expect(home.bookingLinkByType('Double')).toHaveAttribute(
+      'href',
+      new RegExp(`checkin=${bookingWindow.start}&checkout=${bookingWindow.end}`)
+    );
+    await home.bookRoomByType('Double');
+    await expect(page).toHaveURL(
+      new RegExp(`checkin=${bookingWindow.start}&checkout=${bookingWindow.end}`)
+    );
+    await expect(booking.calendar).toBeVisible();
 
     // Open the booking form
     await booking.openBookingForm();
@@ -42,30 +54,30 @@ test.describe('Booking Flow', () => {
     // Submit
     await booking.submitBooking();
 
-    // Assert confirmation
-    await booking.waitForConfirmation();
-    await expect(booking.confirmationHeading).toBeVisible({ timeout: 10000 });
+    await expect(booking.confirmationHeading).toBeVisible();
   });
 
-  test('should show error for missing required fields', async ({ page }) => {
-    await page.goto('/');
+  test('should show error for missing required fields', async ({ page, request }) => {
+    const home = new HomePage(page);
     const booking = new BookingPage(page);
 
-    // Navigate into the Double room
-    await page.getByRole('link', { name: 'Book now' }).nth(2).click();
+    const bookingWindow = await findAvailableBookingWindow(request);
+    await home.navigate();
+    await home.searchAvailability(bookingWindow.startDate, bookingWindow.endDate);
+    await expect(home.bookingLinkByType('Double')).toHaveAttribute(
+      'href',
+      new RegExp(`checkin=${bookingWindow.start}&checkout=${bookingWindow.end}`)
+    );
+    await home.bookRoomByType('Double');
+    await expect(booking.calendar).toBeVisible();
 
-    // Wait for calendar to load
-    await expect(booking.calendar).toBeVisible({ timeout: 10000 });
-
-    // Select dates then open form
-    await booking.selectCalendarDates();
     await booking.openBookingForm();
 
     // Submit without filling in any fields
     await booking.submitBooking();
 
     // Validation error container should appear
-    await expect(page.locator('.alert.alert-danger')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.alert.alert-danger')).toBeVisible();
 
     // Confirmation should NOT appear
     await expect(booking.confirmationHeading).not.toBeVisible();
