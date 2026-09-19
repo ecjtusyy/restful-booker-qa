@@ -1,6 +1,7 @@
 name: QA Suite — Newman + Playwright
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
