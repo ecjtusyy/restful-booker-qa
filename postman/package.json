@@ -1,0 +1,14 @@
+{
+  "name": "restful-booker-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Newman runner for the Restful-Booker Postman collection",
+  "scripts": {
+    "test": "newman run restful-booker.collection.json --environment restful-booker.environment.json --reporters cli,htmlextra --reporter-htmlextra-export reports/api-report.html",
+    "test:cli": "newman run restful-booker.collection.json --environment restful-booker.environment.json --reporters cli"
+  },
+  "devDependencies": {
+    "newman": "6.2.1",
+    "newman-reporter-htmlextra": "1.23.1"
+  }
+}

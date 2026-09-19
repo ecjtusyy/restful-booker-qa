@@ -174,12 +174,12 @@
               { "key": "Accept", "value": "application/json" }
             ],
             "url": {
-              "raw": "{{baseUrl}}/booking?checkin=2024-01-01&checkout=2024-12-31",
+              "raw": "{{baseUrl}}/booking?checkin={{checkinDate}}&checkout={{checkoutDate}}",
               "host": ["{{baseUrl}}"],
               "path": ["booking"],
               "query": [
-                { "key": "checkin", "value": "2024-01-01" },
-                { "key": "checkout", "value": "2024-12-31" }
+                { "key": "checkin", "value": "{{checkinDate}}" },
+                { "key": "checkout", "value": "{{checkoutDate}}" }
               ]
             }
           },
@@ -211,7 +211,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstname\": \"Jane\",\n  \"lastname\": \"Tester\",\n  \"totalprice\": 150,\n  \"depositpaid\": true,\n  \"bookingdates\": {\n    \"checkin\": \"2025-06-01\",\n    \"checkout\": \"2025-06-07\"\n  },\n  \"additionalneeds\": \"Breakfast\"\n}"
+              "raw": "{\n  \"firstname\": \"QA\",\n  \"lastname\": \"Run-{{testRunId}}\",\n  \"totalprice\": 150,\n  \"depositpaid\": true,\n  \"bookingdates\": {\n    \"checkin\": \"{{checkinDate}}\",\n    \"checkout\": \"{{checkoutDate}}\"\n  },\n  \"additionalneeds\": \"Breakfast\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking",
@@ -237,16 +237,16 @@
                   "pm.test('Response contains booking object', function () {",
                   "  const json = pm.response.json();",
                   "  pm.expect(json).to.have.property('booking');",
-                  "  pm.expect(json.booking.firstname).to.equal('Jane');",
-                  "  pm.expect(json.booking.lastname).to.equal('Tester');",
+                  "  pm.expect(json.booking.firstname).to.equal('QA');",
+                  "  pm.expect(json.booking.lastname).to.equal(`Run-${pm.collectionVariables.get('testRunId')}`);",
                   "  pm.expect(json.booking.totalprice).to.equal(150);",
                   "  pm.expect(json.booking.depositpaid).to.be.true;",
                   "});",
                   "",
                   "pm.test('Booking dates are correct', function () {",
                   "  const dates = pm.response.json().booking.bookingdates;",
-                  "  pm.expect(dates.checkin).to.equal('2025-06-01');",
-                  "  pm.expect(dates.checkout).to.equal('2025-06-07');",
+                  "  pm.expect(dates.checkin).to.equal(pm.collectionVariables.get('checkinDate'));",
+                  "  pm.expect(dates.checkout).to.equal(pm.collectionVariables.get('checkoutDate'));",
                   "});",
                   "",
                   "// Save bookingId for downstream requests",
@@ -315,17 +315,43 @@
                   "",
                   "pm.test('Response has required booking fields', function () {",
                   "  const json = pm.response.json();",
-                  "  pm.expect(json).to.have.property('firstname');",
-                  "  pm.expect(json).to.have.property('lastname');",
-                  "  pm.expect(json).to.have.property('totalprice');",
-                  "  pm.expect(json).to.have.property('depositpaid');",
+                  "  pm.expect(json.firstname).to.equal('QA');",
+                  "  pm.expect(json.lastname).to.equal(`Run-${pm.collectionVariables.get('testRunId')}`);",
+                  "  pm.expect(json.totalprice).to.equal(150);",
+                  "  pm.expect(json.depositpaid).to.be.true;",
                   "  pm.expect(json).to.have.property('bookingdates');",
                   "});",
                   "",
                   "pm.test('Booking dates object has checkin and checkout', function () {",
                   "  const dates = pm.response.json().bookingdates;",
-                  "  pm.expect(dates).to.have.property('checkin');",
-                  "  pm.expect(dates).to.have.property('checkout');",
+                  "  pm.expect(dates.checkin).to.equal(pm.collectionVariables.get('checkinDate'));",
+                  "  pm.expect(dates.checkout).to.equal(pm.collectionVariables.get('checkoutDate'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Unknown Booking — Expect 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/booking/2147483647",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "2147483647"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404 for an unknown booking', function () {",
+                  "  pm.response.to.have.status(404);",
                   "});"
                 ]
               }
@@ -338,6 +364,38 @@
       "name": "Authenticated Operations",
       "item": [
         {
+          "name": "Partial Update — Invalid Token",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Cookie", "value": "token=invalid-token" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Unauthorized change\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/booking/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["booking", "{{bookingId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403 for an invalid token', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Update Booking — Full (PUT)",
           "request": {
             "method": "PUT",
@@ -348,7 +406,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstname\": \"Jane\",\n  \"lastname\": \"Updated\",\n  \"totalprice\": 200,\n  \"depositpaid\": false,\n  \"bookingdates\": {\n    \"checkin\": \"2025-07-01\",\n    \"checkout\": \"2025-07-05\"\n  },\n  \"additionalneeds\": \"Late checkout\"\n}"
+              "raw": "{\n  \"firstname\": \"QA\",\n  \"lastname\": \"Updated\",\n  \"totalprice\": 200,\n  \"depositpaid\": false,\n  \"bookingdates\": {\n    \"checkin\": \"{{updatedCheckinDate}}\",\n    \"checkout\": \"{{updatedCheckoutDate}}\"\n  },\n  \"additionalneeds\": \"Late checkout\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/booking/{{bookingId}}",
@@ -374,8 +432,8 @@
                   "",
                   "pm.test('Updated booking dates are correct', function () {",
                   "  const dates = pm.response.json().bookingdates;",
-                  "  pm.expect(dates.checkin).to.equal('2025-07-01');",
-                  "  pm.expect(dates.checkout).to.equal('2025-07-05');",
+                  "  pm.expect(dates.checkin).to.equal(pm.collectionVariables.get('updatedCheckinDate'));",
+                  "  pm.expect(dates.checkout).to.equal(pm.collectionVariables.get('updatedCheckoutDate'));",
                   "});"
                 ]
               }
@@ -418,9 +476,9 @@
                   "",
                   "pm.test('Non-patched fields are preserved', function () {",
                   "  const json = pm.response.json();",
-                  "  // lastname should still be what PUT set it to",
-                  "  pm.expect(json).to.have.property('lastname');",
-                  "  pm.expect(json).to.have.property('bookingdates');",
+                  "  pm.expect(json.lastname).to.equal('Updated');",
+                  "  pm.expect(json.bookingdates.checkin).to.equal(pm.collectionVariables.get('updatedCheckinDate'));",
+                  "  pm.expect(json.bookingdates.checkout).to.equal(pm.collectionVariables.get('updatedCheckoutDate'));",
                   "});"
                 ]
               }
@@ -481,6 +539,28 @@
           ]
         }
       ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.collectionVariables.get('testRunId')) {",
+          "  const futureDate = function (daysFromToday) {",
+          "    const date = new Date();",
+          "    date.setUTCDate(date.getUTCDate() + daysFromToday);",
+          "    return date.toISOString().slice(0, 10);",
+          "  };",
+          "",
+          "  pm.collectionVariables.set('testRunId', String(Date.now()));",
+          "  pm.collectionVariables.set('checkinDate', futureDate(30));",
+          "  pm.collectionVariables.set('checkoutDate', futureDate(34));",
+          "  pm.collectionVariables.set('updatedCheckinDate', futureDate(45));",
+          "  pm.collectionVariables.set('updatedCheckoutDate', futureDate(49));",
+          "}"
+        ]
+      }
     }
   ]
 }

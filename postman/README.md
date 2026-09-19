@@ -1,61 +1,45 @@
-# Postman Collection — Restful-Booker API
+# API Tests — Postman and Newman
 
-This folder contains the Postman collection and environment file for testing the Restful-Booker REST API.
+This directory contains the Restful-Booker Postman collection, its public-demo environment, and a locked Newman runner.
 
-## Base URL
+## Run
 
-```
-https://restful-booker.herokuapp.com
-```
-
-## Authentication
-
-The API uses a token-based auth scheme. The `POST /auth` request generates a token stored as the `{{authToken}}` environment variable, which is automatically applied to PUT, PATCH, and DELETE requests via a collection-level pre-request script.
-
-## Running with Newman
-
-### Basic run
 ```bash
-newman run restful-booker.collection.json \
-  --environment restful-booker.environment.json
+npm ci
+npm test
 ```
 
-### With HTML report (requires newman-reporter-htmlextra)
-```bash
-npm install -g newman-reporter-htmlextra
+`npm test` prints the CLI result and writes `reports/api-report.html`. Use `npm run test:cli` when an HTML report is unnecessary.
 
-newman run restful-booker.collection.json \
-  --environment restful-booker.environment.json \
-  --reporters cli,htmlextra \
-  --reporter-htmlextra-export reports/api-report.html
+## Flow
+
+```text
+Auth token → list/filter → create → read → unknown read
+           → invalid-token patch → PUT → PATCH → delete → verify 404
 ```
 
-## Collection Structure
+The collection keeps this order intentionally. It generates a run ID and future dates once, saves the created `bookingId`, and deletes that booking at the end.
 
-```
-Restful-Booker API
-├── Auth
-│   ├── Generate Token (valid credentials)
-│   └── Generate Token (invalid credentials)
-├── Bookings
-│   ├── Get All Bookings
-│   ├── Get Bookings — Filter by Name
-│   ├── Get Bookings — Filter by Dates
-│   ├── Create Booking (valid)
-│   ├── Create Booking (missing required fields)
-│   └── Get Booking by ID
-└── Authenticated Operations
-    ├── Update Booking (PUT)
-    ├── Partial Update Booking (PATCH)
-    └── Delete Booking
-```
+## Coverage
 
-## Environment Variables
+- Valid and invalid authentication.
+- Booking list and filters.
+- Valid create plus missing-required-field behavior.
+- Exact read-back of created values.
+- Unknown booking ID.
+- Invalid-token partial update.
+- Authenticated full and partial updates, including preserved fields.
+- Delete and post-delete 404 verification.
 
-| Variable | Description |
+The demo API deliberately returns some non-standard status codes: bad credentials use 200 with a `reason`, incomplete booking data returns 500, and successful delete returns 201. The assertions describe observed behavior rather than rewriting it as an ideal contract.
+
+## Environment
+
+| Variable | Purpose |
 |---|---|
-| `baseUrl` | API base URL |
-| `authToken` | Set dynamically by the Auth request |
-| `bookingId` | Set dynamically after Create Booking |
-| `adminUser` | Admin username (default: `admin`) |
-| `adminPass` | Admin password (default: `password123`) |
+| `baseUrl` | Restful-Booker API deployment |
+| `authToken` | Written by the valid-auth request |
+| `bookingId` | Written by the valid-create request |
+| `adminUser` / `adminPass` | Documented credentials for the public demo only |
+
+Do not replace these with private credentials in a committed file. Supply sensitive values from an untracked environment or CI secret when targeting another deployment.
