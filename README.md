@@ -1,164 +1,156 @@
-# restful-booker-qa
+# Restful-Booker QA Automation
 
-A layered QA portfolio project targeting the Restful-Booker demo application — a hotel booking API and web UI built specifically for QA practice. This project demonstrates a full-stack test strategy across API and UI layers, with both suites running automatically in CI on every push.
+[![QA Suite](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 
-![CI Status](https://github.com/jensenmd/restful-booker-qa/actions/workflows/ci.yml/badge.svg)
+## Project Overview
 
-![restful-booker-qa portfolio project card](restful-booker-qa-project-card.png)
+This repository is a focused Web/API QA automation project for [Restful-Booker](https://restful-booker.herokuapp.com) and its public booking UI at [automationintesting.online](https://automationintesting.online). It demonstrates how a small regression suite can divide checks between the API and UI layers, manage test data, clean up created records, and publish actionable CI artifacts.
 
-Built by **Michael D. Jensen** — Senior QA Engineer with 15+ years of enterprise testing experience, specializing in API testing, automation, and CI/CD-integrated quality practices.
+This is an engineering extension of [jensenmd/restful-booker-qa](https://github.com/jensenmd/restful-booker-qa), not a claim of original authorship. See [Project Improvements](#project-improvements) and [Attribution](#attribution).
 
-🔗 [LinkedIn](https://www.linkedin.com/in/michaeljensen-qa/) | 📧 jensen.md@gmail.com
+## Testing Scope
 
----
+- **API testing:** authentication, booking queries, create/read/update/partial-update/delete, response contracts, and state transitions.
+- **Negative testing:** invalid credentials, invalid write token, missing required booking fields, unknown booking IDs, and contact-form validation.
+- **UI/E2E testing:** page access, room selection, booking submission, required fields, contact submission, and client-visible validation.
+- **Regression testing:** independent Newman and Playwright suites for local and CI execution.
+- **Cross-browser testing:** Chromium and Firefox projects. The live booking submission is scoped to Chromium because the shared demo has returned a browser-level load error after Firefox submission; the remaining UI scenarios run in both projects.
 
-## What This Project Demonstrates
+Performance, security, accessibility, and mobile coverage are not claimed by this repository.
 
-| Layer | Stack | Coverage |
-|---|---|---|
-| API Testing | Postman + Newman | Auth flows, full CRUD, error handling, edge cases |
-| UI Automation | Playwright + JavaScript | End-to-end booking workflows, form validation, cross-browser |
-| CI/CD Pipeline | GitHub Actions | Both suites run automatically on every push and PR |
+## Architecture / Structure
 
-This is not a single-tool project. The combination of Postman API testing and Playwright UI automation — each with its own CI job and HTML report — reflects how layered test strategies work in production environments: different tools for different layers, unified in a single pipeline.
-
----
-
-## Why Restful-Booker?
-
-[Restful-Booker](https://restful-booker.herokuapp.com) is an open-source hotel booking demo application built by Mark Winteringham specifically for QA practice. It provides:
-
-- A realistic REST API (`/api/booking`) with authentication, CRUD operations, and error scenarios
-- A simple web UI for end-to-end workflow testing
-- Enough complexity to write meaningful tests without requiring proprietary access
-
-It's the QA community's standard practice target for good reason — it behaves like a real application, including imperfect behavior worth testing against.
-
----
-
-## Project Structure
-
-```
+```text
 restful-booker-qa/
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # Runs Newman + Playwright on push/PR
+├── .github/workflows/ci.yml       # API and UI CI jobs
+├── docs/
+│   ├── PROJECT_AUDIT.md           # Evidence-led upstream audit and baseline
+│   └── TEST_STRATEGY.md           # Risk, layer, regression, and triage strategy
 ├── postman/
-│   ├── restful-booker.collection.json   # Postman collection (importable)
-│   ├── restful-booker.environment.json  # Environment variables
-│   └── README.md               # Collection notes and Newman usage
+│   ├── restful-booker.collection.json
+│   ├── restful-booker.environment.json
+│   ├── package.json               # Pinned Newman/reporting runner
+│   └── package-lock.json
 ├── playwright/
-│   ├── tests/                  # Test specs
-│   ├── pages/                  # Page Object Models
-│   ├── utils/                  # Helpers and fixtures
+│   ├── pages/                     # Small page objects for reused interactions
+│   ├── tests/                     # Maintained UI regression specs
+│   ├── utils/testData.js          # Valid and parameterized invalid data
 │   ├── playwright.config.js
-│   └── package.json
+│   ├── package.json
+│   └── package-lock.json
+├── .gitignore
 └── README.md
 ```
 
----
+## Test Strategy
 
-## Test Coverage
+The API suite owns service contracts, authorization, CRUD state, and most negative cases because those checks are faster and easier to diagnose without a browser. The UI suite is deliberately smaller: it verifies that a user can find a room, complete the booking form, submit a contact request, and see meaningful validation.
 
-### API Layer — Postman / Newman
+Keeping invalid payload combinations and detailed CRUD checks at the API layer avoids a slow, fragile UI suite. UI automation is reserved for behavior that depends on rendering, selectors, form interaction, navigation, or user-visible feedback. The full rationale and CI triage flow are in [docs/TEST_STRATEGY.md](docs/TEST_STRATEGY.md).
 
-| Endpoint | Scenarios Covered |
-|---|---|
-| `POST /auth` | Token generation (valid credentials), rejection (invalid credentials) |
-| `GET /booking` | List all bookings, filter by name, filter by date range |
-| `POST /booking` | Create booking (valid payload, missing required fields, invalid dates) |
-| `GET /booking/:id` | Retrieve specific booking by ID |
-| `PUT /booking/:id` | Full update (authenticated) |
-| `PATCH /booking/:id` | Partial update (authenticated) |
-| `DELETE /booking/:id` | Delete booking (authenticated), verify removal |
+## Key Test Scenarios
 
-JavaScript test scripts validate status codes, response schema, and business rules inline within each request.
+### API
 
-### UI Layer — Playwright
+- Generate an auth token; verify the API's explicit bad-credentials response.
+- Query booking collections and date/name filters.
+- Create a uniquely named booking with future dates, then verify returned state.
+- Reject a partial update made with an invalid token.
+- Perform full and partial updates; verify changed and preserved values.
+- Delete the created booking and verify it no longer exists.
+- Verify missing required fields and an unknown resource response.
 
-| Workflow | Coverage |
-|---|---|
-| Room search | Search for available rooms by date |
-| Booking happy path | Complete a full reservation end-to-end |
-| Form validation | Required field enforcement, date conflict handling |
-| Contact form | Submission and confirmation |
+### UI
 
-UI tests run cross-browser across **Chromium** and **Firefox** via Playwright's multi-browser configuration.
+- Read the room's public availability report, enter a free date window on the home page, and open a room by semantic type instead of list position.
+- Display the booking calendar and complete the critical booking path.
+- Verify booking-form required-field feedback.
+- Submit a valid contact request.
+- Parameterize malformed email and below-minimum-length contact cases; assert the actual user-visible errors.
 
-### Page Object Model
+## Tech Stack
 
-UI tests use the Page Object Model (POM) pattern — UI interactions are abstracted into reusable page classes rather than scattered across test specs. This keeps tests readable, maintainable, and resilient to UI changes.
+- Postman Collection v2.1 and Newman 6.2.1
+- `newman-reporter-htmlextra` 1.23.1
+- Playwright Test 1.58.2 with JavaScript
+- Node.js 20 in GitHub Actions
+- GitHub Actions and Actions artifacts
 
----
+## Local Setup
 
-## CI/CD Pipeline
+Prerequisites: Git, Node.js 20 or later, npm, and network access to the two public demo services.
 
-GitHub Actions runs on every push and pull request to `main`:
-
-- **Newman job** — executes the full Postman collection, uploads HTML report as a downloadable artifact
-- **Playwright job** — runs all UI specs across Chromium and Firefox, uploads Playwright HTML report
-
-Both jobs run independently and in parallel. A failure in one does not block the other.
-
-> **Note on CI stability:** The Restful-Booker demo server (hosted on Heroku) intermittently returns 500 errors — a known, widely-documented characteristic of this public test target, not an issue with the test code itself. This is a useful real-world reminder that CI failures in external-dependency pipelines require triage before assuming test code is at fault. Tests that fail due to upstream instability are categorically different from tests that fail due to application defects — distinguishing between the two is a core QA discipline.
-
----
-
-## Running Locally
-
-### Prerequisites
-- Node.js v18+
-- Newman: `npm install -g newman`
-- Playwright: installed via `npm install` in `/playwright`
-
-### API Tests (Newman)
 ```bash
+git clone <your-fork-url>
+cd restful-booker-qa
+
+# API suite
 cd postman
+npm ci
+npm test
 
-newman run restful-booker.collection.json \
-  --environment restful-booker.environment.json \
-  --reporters cli,htmlextra \
-  --reporter-htmlextra-export reports/api-report.html
+# UI suite
+cd ../playwright
+npm ci
+npx playwright install chromium firefox
+npm test
 ```
 
-### UI Tests (Playwright)
+Useful UI commands:
+
 ```bash
-cd playwright
-npm install
-npx playwright install --with-deps
-
-# Run all tests (headless)
-npx playwright test
-
-# Run with browser visible
-npx playwright test --headed
-
-# View HTML report
-npx playwright show-report
+npm run test:chromium
+npm run test:firefox
+npm run test:headed
+npm run test:report
 ```
 
----
+If a Windows Playwright browser download is damaged but Microsoft Edge is installed, Chromium tests can use the system channel without changing source:
 
-## QA Portfolio Quick Reference
+```powershell
+$env:PLAYWRIGHT_CHROMIUM_CHANNEL = 'msedge'
+npm run test:chromium
+```
 
-This project is part of a broader QA portfolio demonstrating complementary quality-engineering skills.
+`BASE_URL` can override the UI target. The Postman environment can likewise be copied and adjusted for another Restful-Booker deployment. Never commit real credentials or tokens.
 
-| Project | Focus |
+## CI
+
+On each push and pull request to `main`, GitHub Actions runs two independent jobs:
+
+1. `npm ci` and Newman API regression.
+2. `npm ci`, Chromium/Firefox installation, and Playwright UI regression.
+
+The jobs are intentionally separate so an API failure does not hide the UI result. Both jobs have bounded timeouts and read-only repository permissions.
+
+## Reports
+
+- Newman HTML: `postman/reports/api-report.html`
+- Playwright HTML: `playwright/playwright-report/`
+- Playwright failure evidence: `playwright/test-results/` (screenshots, traces, and related diagnostics)
+
+CI uploads the corresponding paths even after test failure and retains them for seven days. Generated outputs and `node_modules` are ignored by Git.
+
+## Project Improvements
+
+| Upstream project | Increment in this fork |
 |---|---|
-| [android-appium-wdio-poc](https://github.com/jensenmd/android-appium-wdio-poc) | Native Android UI automation proof of concept using Appium, WebdriverIO, TypeScript, and UiAutomator2 |
-| [mapmyrun-quality-investigation](https://github.com/jensenmd/mapmyrun-quality-investigation) | Black-box mobile and GPS quality investigation using field evidence and bounded conclusions |
-| [restful-booker-qa](https://github.com/jensenmd/restful-booker-qa) **(this repository)** | Layered API and UI automation using Postman, Newman, Playwright, and GitHub Actions |
-| [pharmacy-spend-etl-qa](https://github.com/jensenmd/pharmacy-spend-etl-qa) | ETL pipeline and SQL-driven data-integrity validation modeled after healthcare analytics work |
-| [qa-automation-showcase](https://github.com/jensenmd/qa-automation-showcase) | REST API testing, data validation, and CI/CD-integrated automation |
-| [ai-qa-framework](https://github.com/jensenmd/ai-qa-framework) | Human-reviewed AI-assisted test generation with structured cases and pytest execution |
-| [claude-code-qa-sessions](https://github.com/jensenmd/claude-code-qa-sessions) | Agentic analysis of existing QA repositories with human review and targeted implementation |
-| [agentqa-orchestrator](https://github.com/jensenmd/agentqa-orchestrator) | Structured agentic code auditing using Python, Pydantic, Gemini, and JSON |
----
-## Author
+| Core Postman auth and booking CRUD flow | Added invalid-token and unknown-resource checks; generated future test dates; strengthened state assertions |
+| Basic Playwright booking and contact coverage | Added availability-driven dates, replaced position-based room selection, completed POM usage, and added focused data-driven contact validation |
+| Initial page objects and shared guest data | Added a small contact page object and explicit valid/invalid datasets; removed recorder-only drafts |
+| Parallel Newman/Playwright CI jobs | Added locked Newman dependencies, deterministic `npm ci`, bounded jobs, minimal browser install, and raw failure artifacts |
+| Portfolio overview | Added an evidence-based audit, concise strategy document, reproducible setup, truthful constraints, and explicit attribution |
 
-**Michael D. Jensen** — Senior QA Engineer
-15+ years of enterprise software testing experience across healthcare IT, financial systems, telecommunications, and cybersecurity. Deep background in REST API validation, ETL pipeline testing, SQL-based data integrity verification, and full-stack manual testing in Agile environments.
+The detailed baseline and reasons for each change are recorded in [docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md).
 
-Current hands-on work includes Python/pytest automation, Playwright UI testing, and CI/CD-integrated quality practices.
+## Known Constraints
 
-🔗 [LinkedIn](https://www.linkedin.com/in/michaeljensen-qa/) | 🐙 [GitHub Profile](https://github.com/jensenmd) | 📧 jensen.md@gmail.com
+Both targets are shared public demo services. Availability, response time, data volume, and server state are outside this repository's control. Failures must first be classified as test-code, browser/runtime, network, or service behavior; assertions should not be weakened merely to produce a green run.
+
+The public demo credentials in the Postman environment are documented sample credentials for Restful-Booker, not a private secret.
+
+## Attribution
+
+Based on and forked from [Michael D. Jensen's `jensenmd/restful-booker-qa`](https://github.com/jensenmd/restful-booker-qa). The upstream README and Git history identify Michael D. Jensen as the original project author. Restful-Booker itself is maintained separately by [Mark Winteringham](https://github.com/mwinteringham/restful-booker).
+
+The audited upstream revision did not contain a `LICENSE` file. This repository does not invent or replace an upstream license; Git history, links, and attribution are retained so the origin of the work remains clear.
